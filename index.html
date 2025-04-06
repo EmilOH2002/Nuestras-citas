@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Citas con Mafercita 💖</title>
+
+  <!-- FullCalendar y SweetAlert -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <!-- Google Fonts: Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <style>
+    /* ======== ESTILOS GENERALES ======== */
+    body {
+      background: #ffe6f0 url('https://www.transparenttextures.com/patterns/floral.png') repeat;
+      font-family: 'Segoe UI', sans-serif;
+      color: #c2185b;
+      margin: 0;
+      padding: 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+    }
+
+    .material-icons {
+      vertical-align: middle;
+    }
+
+    .instrucciones {
+      text-align: center;
+      font-size: 1rem;
+      color: #ad1457;
+      margin-bottom: 2rem;
+    }
+
+    .form-container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(255, 105, 180, 0.3);
+    }
+
+    input, textarea, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 0.8rem;
+      font-size: 1rem;
+      border: 2px solid #f48fb1;
+      border-radius: 10px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #f06292;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:hover {
+      background-color: #ec407a;
+    }
+
+    input:invalid, textarea:invalid {
+      border-color: #ef5350;
+    }
+
+    #calendar {
+      max-width: 900px;
+      margin: 3rem auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(255, 105, 180, 0.3);
+    }
+
+    .btn-icon {
+      margin-right: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ======== ENCABEZADO E INSTRUCCIONES ======== -->
+  <header>
+    <h1><span class="material-icons">favorite</span> Agenda de Citas con Mafercita <span class="material-icons">favorite</span></h1>
+    <p class="instrucciones">
+      <span class="material-icons">info</span> 
+      Agrega, visualiza y administra tus citas románticas. ¡Nunca olvides una!
+    </p>
+  </header>
+
+  <!-- ======== FORMULARIO DE CITA ======== -->
+  <section class="form-container">
+    <form id="formCita">
+      <input type="text" id="lugar" placeholder="📍 Lugar de la cita" required />
+      <input type="date" id="fecha" required />
+      <input type="time" id="hora" required />
+      <textarea id="detalle" placeholder="📝 Detalles especiales de la cita" rows="3" required></textarea>
+      <button type="submit">
+        <span class="material-icons btn-icon">add_circle</span> Guardar Cita
+      </button>
+    </form>
+  </section>
+
+  <!-- ======== CALENDARIO ======== -->
+  <section id="calendar"></section>
+
+  <!-- ======== SCRIPT PRINCIPAL ======== -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <script>
+    // ==================== VARIABLES Y ESTADO ====================
+    const form = document.getElementById('formCita');
+    let citas = JSON.parse(localStorage.getItem('citas')) || [];
+
+    // ==================== INICIALIZACIÓN ====================
+    document.addEventListener('DOMContentLoaded', () => {
+      solicitarPermisoNotificacion();
+      inicializarFormulario();
+      inicializarCalendario();
+      citas.forEach(programarNotificacion);
+    });
+
+    // ==================== FUNCIONES ====================
+
+    function solicitarPermisoNotificacion() {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+      }
+    }
+
+    function inicializarFormulario() {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const cita = obtenerDatosCita();
+        if (validarCita(cita)) {
+          guardarCita(cita);
+          mostrarMensajeExito("Cita guardada exitosamente");
+          form.reset();
+          actualizarCalendario();
+          programarNotificacion(cita);
+        }
+      });
+    }
+
+    function obtenerDatosCita() {
+      return {
+        id: Date.now(),
+        title: `💖 Cita en ${document.getElementById('lugar').value}`,
+        start: `${document.getElementById('fecha').value}T${document.getElementById('hora').value}`,
+        extendedProps: {
+          detalle: document.getElementById('detalle').value
+        }
+      };
+    }
+
+    function validarCita(cita) {
+      if (!cita.title || !cita.start || !cita.extendedProps.detalle) {
+        mostrarError("Por favor, completa todos los campos");
+        return false;
+      }
+      return true;
+    }
+
+    function guardarCita(cita) {
+      citas.push(cita);
+      localStorage.setItem('citas', JSON.stringify(citas));
+    }
+
+    function inicializarCalendario() {
+      const calendarEl = document.getElementById('calendar');
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'es',
+        events: citas,
+        eventClick: (info) => mostrarDetalleCita(info.event)
+      });
+      calendar.render();
+      window.calendar = calendar;
+    }
+
+    function actualizarCalendario() {
+      window.calendar.removeAllEvents();
+      citas.forEach(evento => window.calendar.addEvent(evento));
+    }
+
+    function mostrarDetalleCita(evento) {
+      Swal.fire({
+        title: evento.title,
+        html: `<p>${evento.extendedProps.detalle}</p>`,
+        showCancelButton: true,
+        confirmButtonText: '<span class="material-icons">delete</span> Eliminar',
+        cancelButtonText: '<span class="material-icons">close</span> Cerrar',
+        icon: 'info'
+      }).then(result => {
+        if (result.isConfirmed) {
+          eliminarCita(evento.id);
+        }
+      });
+    }
+
+    function eliminarCita(id) {
+      Swal.fire({
+        title: '¿Eliminar cita?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+      }).then(result => {
+        if (result.isConfirmed) {
+          citas = citas.filter(c => c.id !== id);
+          localStorage.setItem('citas', JSON.stringify(citas));
+          actualizarCalendario();
+          mostrarMensajeExito("Cita eliminada");
+        }
+      });
+    }
+
+    function programarNotificacion(cita) {
+      const tiempo = new Date(cita.start).getTime() - Date.now() - 5 * 60 * 1000;
+      if (tiempo > 0 && Notification.permission === 'granted') {
+        setTimeout(() => {
+          new Notification("⏰ Tu cita está cerca", {
+            body: `${cita.title} - ${cita.extendedProps.detalle}`,
+            icon: "https://cdn-icons-png.flaticon.com/512/833/833472.png"
+          });
+        }, tiempo);
+      }
+    }
+
+    function mostrarMensajeExito(mensaje) {
+      Swal.fire({
+        icon: 'success',
+        title: mensaje,
+        timer: 1500,
+        showConfirmButton: false
+      });
+    }
+
+    function mostrarError(mensaje) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: mensaje
+      });
+    }
+  </script>
+</body>
+</html>
